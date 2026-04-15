@@ -93,7 +93,7 @@ class ProvidersCacheServiceTest {
         assertThat(r.body()).isEqualTo("{\"old\":true}");
         assertThat(r.source()).isEqualTo(CacheLookup.STALE);
         verify(client).fetchProviders();
-        verify(ops).set(eq(KEY), contains("{\"new\":true}"));
+        verify(ops).set(eq(KEY), contains("{\\\"new\\\":true}"));
         verify(metrics).recordCacheRequest("stale");
     }
 
