@@ -32,7 +32,7 @@ public class ProvidersCacheService {
                                  ObjectMapper mapper,
                                  Clock clock,
                                  CacheProperties props,
-                                 Executor refreshExecutor) {
+                                 @org.springframework.beans.factory.annotation.Qualifier("refreshExecutor") java.util.concurrent.Executor refreshExecutor) {
         this.redis = redis;
         this.client = client;
         this.metrics = metrics;
