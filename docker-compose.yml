@@ -1,7 +1,6 @@
 services:
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
 
   proxy:
     build: .
@@ -9,5 +8,8 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      ASIAPAY_TOKEN: ${ASIAPAY_TOKEN}
+      CONFIG_SERVER_URL: ${CONFIG_SERVER_URL:-https://j-srv-config.prod.payk8s.transcapital.com}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-test}
+      # A_TOKEN fallback for local dev without config-server access
+      A_TOKEN: ${A_TOKEN:-}
     ports: ["8080:8080"]

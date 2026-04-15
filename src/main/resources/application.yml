@@ -9,7 +9,7 @@ spring:
       port: ${REDIS_PORT:6379}
 asiapay:
   base-url: https://api.asiapay.asia
-  token: ${ASIAPAY_TOKEN}
+  token: ${A_TOKEN:}
   timeout-ms: 5000
 cache:
   fresh-ttl: PT1H
@@ -23,3 +23,13 @@ management:
     health:
       probes:
         enabled: true
+---
+spring:
+  config:
+    activate:
+      on-profile: "!test"
+    import: "optional:configserver:${CONFIG_SERVER_URL:https://j-srv-config.prod.payk8s.transcapital.com}"
+  cloud:
+    config:
+      name: asiapay
+      fail-fast: true
