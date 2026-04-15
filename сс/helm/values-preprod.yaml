@@ -1,0 +1,36 @@
+image:
+  repository: harbor.online.tkbbank.ru/tkbpay/controlled-persons-registry
+serviceAccount:
+  name: test-adapters
+vault:
+  enabled: false    
+replicaCount: 1
+ingress:
+  enabled: true
+  hosts:
+    - controlled-persons-registry.preprod.transcapital.com
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+ports:
+  - containerPort: 8080
+service:
+  name: controlled-persons-registry
+  port: 8080
+  targetPort: 8080
+livenessProbe: 
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  httpGet:
+    path: /actuator/health
+    port: 8080
+readinessProbe: 
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  httpGet:
+    path: /actuator/health
+    port: 8080
+extraEnvs:
+  - name: APP_PROF
+    value: preprod
+  - name: spring_profiles_active
+    value: preprod

@@ -1,0 +1,12 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+    # Для prod конфиг берём из Config Server.
+#    import: configserver:
+
+  cloud:
+    config:
+#      uri: ${SPRING_CLOUD_CONFIG_URI:http://configserver-1:8888,http://configserver-2:8888}
+      fail-fast: true
+

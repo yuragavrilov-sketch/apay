@@ -1,0 +1,13 @@
+## =========================
+## Spring Boot
+## =========================
+spring:
+  application:
+    # Имя приложения
+    name: controlled-persons-registry
+#  config:
+#    import: "optional:configserver:"
+  profiles:
+    # Профиль по умолчанию для локального запуска разработчиком.
+    # В окружениях (test/prod) профиль задаётся явно через SPRING_PROFILES_ACTIVE.
+    default: local

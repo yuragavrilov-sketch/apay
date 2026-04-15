@@ -1,14 +1,9 @@
 server:
   port: 8080
 spring:
-  application:
-    name: asiapay-proxy
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+    # Дефолтный профиль для локального запуска. В окружениях задавать явно через SPRING_PROFILES_ACTIVE.
+    default: local
 asiapay:
   base-url: https://api.asiapay.asia
   timeout-ms: 5000
@@ -29,67 +24,3 @@ management:
 logging:
   level:
     org.springframework.cloud.config: DEBUG
-
----
-# local — developer laptop + JUnit. No config-server, token via A_TOKEN env or dev default.
-spring:
-  config:
-    activate:
-      on-profile: local
-  cloud:
-    config:
-      enabled: false
-      import-check:
-        enabled: false
-asiapay:
-  token: ${A_TOKEN:local-dev-token}
-
----
-# test — deployed TEST environment. Token + Redis Cluster nodes from Spring Cloud Config / Vault.
-spring:
-  config:
-    activate:
-      on-profile: test
-    import: "configserver:${CONFIG_SERVER_URL:https://j-srv-config.prod.payk8s.transcapital.com}"
-  cloud:
-    config:
-      name: asiapay
-      fail-fast: true
-  data:
-    redis:
-      cluster:
-        nodes:
-          - ${REDIS_CLUSTER_NODES_0}
-          - ${REDIS_CLUSTER_NODES_1}
-          - ${REDIS_CLUSTER_NODES_2}
-          - ${REDIS_CLUSTER_NODES_3}
-          - ${REDIS_CLUSTER_NODES_4}
-          - ${REDIS_CLUSTER_NODES_5}
-        max-redirects: 3
-asiapay:
-  token: ${A_TOKEN}
-
----
-# prod — deployed PROD environment. Same as test, expected to get a different Vault path.
-spring:
-  config:
-    activate:
-      on-profile: prod
-    import: "configserver:${CONFIG_SERVER_URL:https://j-srv-config.prod.payk8s.transcapital.com}"
-  cloud:
-    config:
-      name: asiapay
-      fail-fast: true
-  data:
-    redis:
-      cluster:
-        nodes:
-          - ${REDIS_CLUSTER_NODES_0}
-          - ${REDIS_CLUSTER_NODES_1}
-          - ${REDIS_CLUSTER_NODES_2}
-          - ${REDIS_CLUSTER_NODES_3}
-          - ${REDIS_CLUSTER_NODES_4}
-          - ${REDIS_CLUSTER_NODES_5}
-        max-redirects: 3
-asiapay:
-  token: ${A_TOKEN}

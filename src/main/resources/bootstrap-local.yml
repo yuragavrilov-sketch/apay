@@ -1,0 +1,6 @@
+spring:
+  cloud:
+    config:
+      # На локальной разработке и в JUnit конфиг-сервер не используется.
+      enabled: false
+      fail-fast: false

@@ -1,0 +1,8 @@
+# local — разработка и JUnit. Конфиг-сервер выключен в bootstrap-local.yml.
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+asiapay:
+  token: ${A_TOKEN:local-dev-token}

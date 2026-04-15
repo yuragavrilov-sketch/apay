@@ -1,0 +1,67 @@
+  server:
+    port: 8080
+
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics,prometheus
+
+    endpoint:
+      health:
+        probes:
+          enabled: true
+
+    metrics:
+      tags:
+        application: ${spring.application.name}
+      distribution:
+        percentiles-histogram:
+          controlled_persons_registry_processing_seconds: true
+        percentiles:
+          controlled_persons_registry_processing_seconds: 0.5,0.9,0.99
+
+  logging:
+    level:
+      root: INFO
+      ru.copperside.controlledpersonsregistry: DEBUG
+
+  spring:
+    kafka:
+      bootstrap-servers: 10.200.103.86:9092,10.200.103.87:9092,10.200.103.88:9092
+      listener:
+        ack-mode: record
+      consumer:
+        group-id: controlled-persons-registry-group
+        enable-auto-commit: false
+        key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+      producer:
+        acks: all
+        key-serializer: org.apache.kafka.common.serialization.StringSerializer
+        value-serializer: org.apache.kafka.common.serialization.StringSerializer
+        properties:
+          enable.idempotence: true
+
+    datasource:
+      url: jdbc:oracle:thin:@//cdr-ora12t2-01.ad.transcapital.com:1521/IBS12T2
+      username: ibs
+      password: ib123456s
+      driver-class-name: oracle.jdbc.OracleDriver
+
+  # Бизнесовые настройки (топики + окно ретрая)
+  controlled-persons-registry:
+    request-processor:
+      type: oracle
+    kafka:
+      topics:
+        request: controlled.persons
+        response: request.registry.responses
+        error: error-topic
+
+      retry:
+        # Окно ретрая в миллисекундах (в рамках этого окна ретраим MessageProcessingException)
+        max-duration-ms: 6000000
+        backoff-delay-ms: 60000
+        backoff-multiplier: 1.0

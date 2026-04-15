@@ -1,0 +1,3 @@
+### GET config
+GET http://j-srv-config.prod.payk8s.transcapital.com/controlled-persons-registry{{ profile }}
+###

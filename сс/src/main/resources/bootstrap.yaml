@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: controlled-persons-registry
+  cloud:
+    config:
+      uri:
+        - http://j-srv-config:8080 # В одном неймспейсе
+        - http://j-srv-config.production.svc:8080 # В кластере k8s prod(в разных ns)
+        - https://j-srv-config.prod.payk8s.transcapital.com:443 # В случае не доступности через DNS k8s
+        - https://j-srv-config.paydss.tkbbank.ru:443 # В случае сервис развёрнут в PCIDSS контуре

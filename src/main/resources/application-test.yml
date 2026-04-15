@@ -1,0 +1,15 @@
+# test — деплой в TEST. Все секреты и Redis Cluster приходят из Vault через config-server.
+spring:
+  data:
+    redis:
+      cluster:
+        nodes:
+          - ${REDIS_CLUSTER_NODES_0}
+          - ${REDIS_CLUSTER_NODES_1}
+          - ${REDIS_CLUSTER_NODES_2}
+          - ${REDIS_CLUSTER_NODES_3}
+          - ${REDIS_CLUSTER_NODES_4}
+          - ${REDIS_CLUSTER_NODES_5}
+        max-redirects: 3
+asiapay:
+  token: ${A_TOKEN}

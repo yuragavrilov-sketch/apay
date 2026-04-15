@@ -1,0 +1,18 @@
+spring:
+  application:
+    # Имя приложения = путь в Vault (pay/app/asiapay/{profile}).
+    name: asiapay
+  cloud:
+    config:
+      uri:
+        - http://j-srv-config:8080                                # тот же namespace k8s
+        - http://j-srv-config.production.svc:8080                 # prod-namespace по DNS k8s
+        - https://j-srv-config.prod.payk8s.transcapital.com:443   # внешняя точка (если DNS k8s не видно)
+        - https://j-srv-config.paydss.tkbbank.ru:443              # PCIDSS-контур
+      label: main
+      fail-fast: true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000
+        multiplier: 1.5
+        max-interval: 5000
