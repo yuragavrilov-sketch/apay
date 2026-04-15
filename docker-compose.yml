@@ -1,0 +1,13 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  proxy:
+    build: .
+    depends_on: [redis]
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ASIAPAY_TOKEN: ${ASIAPAY_TOKEN}
+    ports: ["8080:8080"]
