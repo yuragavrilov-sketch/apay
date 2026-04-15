@@ -5,15 +5,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.Executor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.connection.RedisStringCommands;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.types.Expiration;
 import org.springframework.stereotype.Service;
 import ru.tkb.asiapayproxy.config.CacheProperties;
 import ru.tkb.asiapayproxy.metrics.CacheMetrics;
 import ru.tkb.asiapayproxy.upstream.AsiapayClient;
+import ru.tkb.asiapayproxy.upstream.UpstreamException;
 import ru.tkb.asiapayproxy.upstream.UpstreamResponse;
 
 @Service
 public class ProvidersCacheService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProvidersCacheService.class);
 
     static final String KEY = "asiapay:providers";
     static final String LOCK = "asiapay:providers:lock";
@@ -48,14 +56,34 @@ public class ProvidersCacheService {
             Duration age = Duration.between(entry.fetchedAt(), clock.instant());
             if (age.compareTo(props.freshTtl()) < 0) {
                 metrics.recordCacheRequest("hit");
-                return new ProvidersResult(entry.upstreamStatus(), entry.body(), CacheLookup.FRESH);
+                return new ProvidersResult(entry.upstreamStatus(), entry.body(), CacheLookup.FRESH, false, 0);
             }
             metrics.recordCacheRequest("stale");
             scheduleRefresh();
-            return new ProvidersResult(entry.upstreamStatus(), entry.body(), CacheLookup.STALE);
+            return new ProvidersResult(entry.upstreamStatus(), entry.body(), CacheLookup.STALE, false, 0);
         }
         metrics.recordCacheRequest("miss");
+        if (tryAcquireLock()) {
+            return fetchAndStoreSync();
+        }
+        // Lock held by another thread — wait briefly for them to populate
+        for (int i = 0; i < 20; i++) {
+            try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            CacheEntry waited = readEntry();
+            if (waited != null) {
+                return new ProvidersResult(waited.upstreamStatus(), waited.body(), CacheLookup.MISS, false, 0);
+            }
+        }
+        // Fall through: we waited, still nothing — fetch ourselves (don't hang forever)
         return fetchAndStoreSync();
+    }
+
+    private boolean tryAcquireLock() {
+        Boolean acquired = redis.execute((RedisCallback<Boolean>) connection ->
+                connection.stringCommands().set(LOCK.getBytes(), "1".getBytes(),
+                        Expiration.from(props.refreshLockTtl()),
+                        RedisStringCommands.SetOption.SET_IF_ABSENT));
+        return Boolean.TRUE.equals(acquired);
     }
 
     private ProvidersResult fetchAndStoreSync() {
@@ -66,20 +94,30 @@ public class ProvidersCacheService {
             metrics.recordUpstream("ok", elapsed);
             if (resp.isSuccess()) {
                 storeEntry(resp);
-                return new ProvidersResult(resp.status(), resp.body(), CacheLookup.MISS);
             }
-            return new ProvidersResult(resp.status(), resp.body(), CacheLookup.MISS);
-        } catch (ru.tkb.asiapayproxy.upstream.UpstreamException e) {
-            metrics.recordUpstream("fail", (System.nanoTime() - start) / 1_000_000L);
+            releaseLock();
+            return new ProvidersResult(resp.status(), resp.body(), CacheLookup.MISS, true, elapsed);
+        } catch (UpstreamException e) {
+            releaseLock();
+            String outcome = e.kind() == UpstreamException.Kind.TIMEOUT ? "timeout" : "fail";
+            metrics.recordUpstream(outcome, (System.nanoTime() - start) / 1_000_000L);
             throw e;
         }
+    }
+
+    private void releaseLock() {
+        try {
+            redis.delete(LOCK);
+        } catch (Exception ignored) {}
     }
 
     private void storeEntry(UpstreamResponse resp) {
         try {
             CacheEntry entry = new CacheEntry(resp.body(), clock.instant(), resp.status());
             redis.opsForValue().set(KEY, mapper.writeValueAsString(entry));
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("cache store failed", e);
+        }
     }
 
     private void scheduleRefresh() {
@@ -87,18 +125,16 @@ public class ProvidersCacheService {
     }
 
     private void refreshIfLocked() {
-        Boolean acquired = redis.execute((org.springframework.data.redis.core.RedisCallback<Boolean>) connection ->
-                connection.stringCommands().set(LOCK.getBytes(), "1".getBytes(),
-                        org.springframework.data.redis.core.types.Expiration.from(props.refreshLockTtl()),
-                        org.springframework.data.redis.connection.RedisStringCommands.SetOption.SET_IF_ABSENT));
-        if (!Boolean.TRUE.equals(acquired)) return;
+        if (!tryAcquireLock()) return;
         long start = System.nanoTime();
         try {
             UpstreamResponse resp = client.fetchProviders();
             metrics.recordUpstream("ok", (System.nanoTime() - start) / 1_000_000L);
             if (resp.isSuccess()) storeEntry(resp);
-        } catch (ru.tkb.asiapayproxy.upstream.UpstreamException e) {
-            metrics.recordUpstream("fail", (System.nanoTime() - start) / 1_000_000L);
+        } catch (UpstreamException e) {
+            String outcome = e.kind() == UpstreamException.Kind.TIMEOUT ? "timeout" : "fail";
+            metrics.recordUpstream(outcome, (System.nanoTime() - start) / 1_000_000L);
+            log.warn("upstream_refresh_failed", e);
             metrics.recordRefreshFailure();
         }
     }
@@ -111,6 +147,7 @@ public class ProvidersCacheService {
         } catch (JsonProcessingException e) {
             return null;
         } catch (Exception e) {
+            log.warn("redis read failed, failing open to upstream", e);
             return null;
         }
     }

@@ -131,4 +131,24 @@ class ProvidersIntegrationTest {
         assertThat(r.getStatusCode().value()).isEqualTo(503);
         assertThat(r.getBody()).contains("upstream_unavailable");
     }
+
+    @Test
+    void parallelMisses_upstreamCalledOnlyOnce() throws Exception {
+        wm.stubFor(get("/v1/tkbapp/providers").willReturn(okJson("{\"v\":\"parallel\"}").withFixedDelay(200)));
+
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(5);
+        java.util.List<java.util.concurrent.Future<ResponseEntity<String>>> futures = new java.util.ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            futures.add(pool.submit(() ->
+                    http.getForEntity("http://localhost:" + port + "/v1/tkbapp/providers", String.class)));
+        }
+        for (var f : futures) {
+            ResponseEntity<String> r = f.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(r.getStatusCode().value()).isEqualTo(200);
+            assertThat(r.getBody()).isEqualTo("{\"v\":\"parallel\"}");
+        }
+        pool.shutdown();
+
+        wm.verify(1, getRequestedFor(urlEqualTo("/v1/tkbapp/providers")));
+    }
 }

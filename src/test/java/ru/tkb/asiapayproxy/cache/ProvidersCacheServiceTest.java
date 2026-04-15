@@ -18,6 +18,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import ru.tkb.asiapayproxy.config.CacheProperties;
 import ru.tkb.asiapayproxy.metrics.CacheMetrics;
 import ru.tkb.asiapayproxy.upstream.AsiapayClient;
+import ru.tkb.asiapayproxy.upstream.UpstreamException;
 import ru.tkb.asiapayproxy.upstream.UpstreamResponse;
 
 class ProvidersCacheServiceTest {
@@ -102,7 +103,7 @@ class ProvidersCacheServiceTest {
         Instant fetched = clock.instant().minus(Duration.ofHours(2));
         when(ops.get(KEY)).thenReturn(entryJson(fetched, "{\"old\":true}"));
         when(redis.execute(any(org.springframework.data.redis.core.RedisCallback.class))).thenReturn(true);
-        when(client.fetchProviders()).thenThrow(new ru.tkb.asiapayproxy.upstream.UpstreamException("boom", null));
+        when(client.fetchProviders()).thenThrow(new UpstreamException(UpstreamException.Kind.IO, "boom", null));
 
         ProvidersResult r = service.get();
 
@@ -114,10 +115,11 @@ class ProvidersCacheServiceTest {
     @Test
     void miss_upstreamFail_propagatesException() {
         when(ops.get(KEY)).thenReturn(null);
-        when(client.fetchProviders()).thenThrow(new ru.tkb.asiapayproxy.upstream.UpstreamException("down", null));
+        when(redis.execute(any(org.springframework.data.redis.core.RedisCallback.class))).thenReturn(true);
+        when(client.fetchProviders()).thenThrow(new UpstreamException(UpstreamException.Kind.IO, "down", null));
 
         assertThatThrownBy(() -> service.get())
-                .isInstanceOf(ru.tkb.asiapayproxy.upstream.UpstreamException.class);
+                .isInstanceOf(UpstreamException.class);
         verify(metrics).recordUpstream(eq("fail"), anyLong());
     }
 
@@ -136,11 +138,26 @@ class ProvidersCacheServiceTest {
     @Test
     void redisReadFailure_failOpenToUpstream() {
         when(ops.get(KEY)).thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("down"));
+        when(redis.execute(any(org.springframework.data.redis.core.RedisCallback.class))).thenReturn(true);
         when(client.fetchProviders()).thenReturn(new UpstreamResponse(200, "{\"live\":true}"));
 
         ProvidersResult r = service.get();
 
         assertThat(r.body()).isEqualTo("{\"live\":true}");
         verify(metrics).recordCacheRequest("miss");
+    }
+
+    @Test
+    void miss_lockNotAcquired_waitsThenReturnsEntryWrittenByOtherThread() throws Exception {
+        // First poll: null. Lock taken by another. Subsequent polls: another thread wrote the entry.
+        Instant written = clock.instant();
+        String stored = entryJson(written, "{\"by\":\"other\"}");
+        when(ops.get(KEY)).thenReturn(null, null, stored);
+        when(redis.execute(any(org.springframework.data.redis.core.RedisCallback.class))).thenReturn(false);
+
+        ProvidersResult r = service.get();
+
+        assertThat(r.body()).isEqualTo("{\"by\":\"other\"}");
+        verify(client, never()).fetchProviders();
     }
 }

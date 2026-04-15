@@ -33,11 +33,13 @@ public class AsiapayClient {
             int status = response.getStatusCode().value();
             String body = response.getBody() == null ? "" : response.getBody();
             if (status >= 500) {
-                throw new UpstreamException("upstream 5xx: " + status, null);
+                throw new UpstreamException(UpstreamException.Kind.IO, "upstream 5xx: " + status, null);
             }
             return new UpstreamResponse(status, body);
         } catch (ResourceAccessException e) {
-            throw new UpstreamException("upstream IO error", e);
+            UpstreamException.Kind kind = e.getCause() instanceof java.net.SocketTimeoutException
+                    ? UpstreamException.Kind.TIMEOUT : UpstreamException.Kind.IO;
+            throw new UpstreamException(kind, "upstream " + kind.name().toLowerCase(), e);
         }
     }
 }
