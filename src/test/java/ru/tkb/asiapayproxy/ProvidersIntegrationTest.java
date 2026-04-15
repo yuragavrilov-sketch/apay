@@ -29,8 +29,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import redis.embedded.RedisServer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = {AsiapayProxyApplication.class, ProvidersIntegrationTest.TestClockConfig.class})
-@ActiveProfiles("test")
+        classes = {AsiapayProxyApplication.class, ProvidersIntegrationTest.TestClockConfig.class},
+        properties = {"spring.main.allow-bean-definition-overriding=true"})
+@ActiveProfiles("local")
 class ProvidersIntegrationTest {
 
     static RedisServer redisServer;

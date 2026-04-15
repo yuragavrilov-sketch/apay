@@ -26,7 +26,7 @@ management:
         enabled: true
 
 ---
-# local — developer laptop. No config-server, token via A_TOKEN env or dev default.
+# local — developer laptop + JUnit. No config-server, token via A_TOKEN env or dev default.
 spring:
   config:
     activate:
@@ -40,22 +40,21 @@ asiapay:
   token: ${A_TOKEN:local-dev-token}
 
 ---
-# test — JUnit. Embedded Redis, no config-server, fixed token.
+# test — deployed TEST environment. Token from Spring Cloud Config / Vault.
 spring:
   config:
     activate:
       on-profile: test
+    import: "configserver:${CONFIG_SERVER_URL:https://j-srv-config.prod.payk8s.transcapital.com}"
   cloud:
     config:
-      enabled: false
-      import-check:
-        enabled: false
+      name: asiapay
+      fail-fast: true
 asiapay:
-  token: test-token
-  timeout-ms: 2000
+  token: ${A_TOKEN}
 
 ---
-# prod — container. Token from Vault via Spring Cloud Config.
+# prod — deployed PROD environment. Token from Spring Cloud Config / Vault.
 spring:
   config:
     activate:
