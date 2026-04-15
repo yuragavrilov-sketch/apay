@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import java.net.ServerSocket;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,20 +26,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import redis.embedded.RedisServer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {AsiapayProxyApplication.class, ProvidersIntegrationTest.TestClockConfig.class})
 @ActiveProfiles("test")
-@Testcontainers
 class ProvidersIntegrationTest {
 
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
-            .withExposedPorts(6379);
+    static RedisServer redisServer;
+    static int redisPort;
 
     @RegisterExtension
     static WireMockExtension wm = WireMockExtension.newInstance()
@@ -45,10 +43,24 @@ class ProvidersIntegrationTest {
 
     static AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-04-15T12:00:00Z"));
 
+    @BeforeAll
+    static void startRedis() throws Exception {
+        try (ServerSocket s = new ServerSocket(0)) {
+            redisPort = s.getLocalPort();
+        }
+        redisServer = RedisServer.newRedisServer().port(redisPort).setting("maxmemory 64M").build();
+        redisServer.start();
+    }
+
+    @AfterAll
+    static void stopRedis() throws Exception {
+        if (redisServer != null) redisServer.stop();
+    }
+
     @DynamicPropertySource
     static void props(DynamicPropertyRegistry r) {
-        r.add("spring.data.redis.host", redis::getHost);
-        r.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+        r.add("spring.data.redis.host", () -> "localhost");
+        r.add("spring.data.redis.port", () -> redisPort);
         r.add("asiapay.base-url", wm::baseUrl);
     }
 
