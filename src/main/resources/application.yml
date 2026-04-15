@@ -19,11 +19,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus,info
+        include: health,prometheus,info,env,configprops
   endpoint:
     health:
       probes:
         enabled: true
+    env:
+      show-values: always
+logging:
+  level:
+    org.springframework.cloud.config: DEBUG
 
 ---
 # local — developer laptop + JUnit. No config-server, token via A_TOKEN env or dev default.
@@ -40,7 +45,7 @@ asiapay:
   token: ${A_TOKEN:local-dev-token}
 
 ---
-# test — deployed TEST environment. Token from Spring Cloud Config / Vault.
+# test — deployed TEST environment. Token + Redis Cluster nodes from Spring Cloud Config / Vault.
 spring:
   config:
     activate:
@@ -50,11 +55,22 @@ spring:
     config:
       name: asiapay
       fail-fast: true
+  data:
+    redis:
+      cluster:
+        nodes:
+          - ${REDIS_CLUSTER_NODES_0}
+          - ${REDIS_CLUSTER_NODES_1}
+          - ${REDIS_CLUSTER_NODES_2}
+          - ${REDIS_CLUSTER_NODES_3}
+          - ${REDIS_CLUSTER_NODES_4}
+          - ${REDIS_CLUSTER_NODES_5}
+        max-redirects: 3
 asiapay:
   token: ${A_TOKEN}
 
 ---
-# prod — deployed PROD environment. Token from Spring Cloud Config / Vault.
+# prod — deployed PROD environment. Same as test, expected to get a different Vault path.
 spring:
   config:
     activate:
@@ -64,5 +80,16 @@ spring:
     config:
       name: asiapay
       fail-fast: true
+  data:
+    redis:
+      cluster:
+        nodes:
+          - ${REDIS_CLUSTER_NODES_0}
+          - ${REDIS_CLUSTER_NODES_1}
+          - ${REDIS_CLUSTER_NODES_2}
+          - ${REDIS_CLUSTER_NODES_3}
+          - ${REDIS_CLUSTER_NODES_4}
+          - ${REDIS_CLUSTER_NODES_5}
+        max-redirects: 3
 asiapay:
   token: ${A_TOKEN}
