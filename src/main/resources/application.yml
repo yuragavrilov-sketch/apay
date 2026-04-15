@@ -1,0 +1,25 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: asiapay-proxy
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+asiapay:
+  base-url: https://api.asiapay.asia
+  token: ${ASIAPAY_TOKEN}
+  timeout-ms: 5000
+cache:
+  fresh-ttl: PT1H
+  refresh-lock-ttl: PT30S
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
