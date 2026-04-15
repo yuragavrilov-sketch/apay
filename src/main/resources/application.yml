@@ -3,13 +3,14 @@ server:
 spring:
   application:
     name: asiapay-proxy
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 asiapay:
   base-url: https://api.asiapay.asia
-  token: ${A_TOKEN:}
   timeout-ms: 5000
 cache:
   fresh-ttl: PT1H
@@ -23,13 +24,46 @@ management:
     health:
       probes:
         enabled: true
+
 ---
+# local — developer laptop. No config-server, token via A_TOKEN env or dev default.
 spring:
   config:
     activate:
-      on-profile: "!test"
-    import: "optional:configserver:${CONFIG_SERVER_URL:https://j-srv-config.prod.payk8s.transcapital.com}"
+      on-profile: local
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+asiapay:
+  token: ${A_TOKEN:local-dev-token}
+
+---
+# test — JUnit. Embedded Redis, no config-server, fixed token.
+spring:
+  config:
+    activate:
+      on-profile: test
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+asiapay:
+  token: test-token
+  timeout-ms: 2000
+
+---
+# prod — container. Token from Vault via Spring Cloud Config.
+spring:
+  config:
+    activate:
+      on-profile: prod
+    import: "configserver:${CONFIG_SERVER_URL:https://j-srv-config.prod.payk8s.transcapital.com}"
   cloud:
     config:
       name: asiapay
       fail-fast: true
+asiapay:
+  token: ${A_TOKEN}

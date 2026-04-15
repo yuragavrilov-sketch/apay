@@ -1,14 +1,3 @@
 spring:
   main:
     allow-bean-definition-overriding: true
-  cloud:
-    config:
-      enabled: false
-      import-check:
-        enabled: false
-asiapay:
-  token: test-token
-  timeout-ms: 2000
-cache:
-  fresh-ttl: PT1H
-  refresh-lock-ttl: PT30S

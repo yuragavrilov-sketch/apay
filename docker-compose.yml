@@ -9,7 +9,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CONFIG_SERVER_URL: ${CONFIG_SERVER_URL:-https://j-srv-config.prod.payk8s.transcapital.com}
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-test}
-      # A_TOKEN fallback for local dev without config-server access
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      # A_TOKEN — used only for profile=local, otherwise comes from config-server/Vault
       A_TOKEN: ${A_TOKEN:-}
     ports: ["8080:8080"]
