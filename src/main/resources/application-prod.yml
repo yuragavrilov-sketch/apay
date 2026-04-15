@@ -13,3 +13,5 @@ spring:
         max-redirects: 3
 asiapay:
   token: ${A_TOKEN}
+  # Корневой корп-CA (PEM) поставляется из Vault: spring.ssl.bundle.pem.tcb-root.*
+  ssl-bundle: tcb-root

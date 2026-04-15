@@ -17,7 +17,7 @@ class AsiapayClientTest {
             .build();
 
     private AsiapayClient clientWithToken(String token) {
-        AsiapayProperties props = new AsiapayProperties(wm.baseUrl(), token, 2000);
+        AsiapayProperties props = new AsiapayProperties(wm.baseUrl(), token, 2000, null);
         RestClient rc = RestClient.builder().baseUrl(props.baseUrl()).build();
         return new AsiapayClient(rc, props);
     }
