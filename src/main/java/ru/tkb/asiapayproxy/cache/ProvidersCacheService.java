@@ -63,10 +63,12 @@ public class ProvidersCacheService {
             return new ProvidersResult(entry.upstreamStatus(), entry.body(), CacheLookup.STALE, false, 0);
         }
         metrics.recordCacheRequest("miss");
-        if (tryAcquireLock()) {
+        LockResult lock = tryAcquireLock();
+        if (lock != LockResult.HELD_BY_OTHER) {
+            // ACQUIRED or REDIS_UNAVAILABLE — fetch now. If Redis is down we cannot coordinate.
             return fetchAndStoreSync();
         }
-        // Lock held by another thread — wait briefly for them to populate
+        // Another thread is fetching — wait briefly for them to populate
         for (int i = 0; i < 20; i++) {
             try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
             CacheEntry waited = readEntry();
@@ -78,12 +80,19 @@ public class ProvidersCacheService {
         return fetchAndStoreSync();
     }
 
-    private boolean tryAcquireLock() {
-        Boolean acquired = redis.execute((RedisCallback<Boolean>) connection ->
-                connection.stringCommands().set(LOCK.getBytes(), "1".getBytes(),
-                        Expiration.from(props.refreshLockTtl()),
-                        RedisStringCommands.SetOption.SET_IF_ABSENT));
-        return Boolean.TRUE.equals(acquired);
+    enum LockResult { ACQUIRED, HELD_BY_OTHER, REDIS_UNAVAILABLE }
+
+    private LockResult tryAcquireLock() {
+        try {
+            Boolean acquired = redis.execute((RedisCallback<Boolean>) connection ->
+                    connection.stringCommands().set(LOCK.getBytes(), "1".getBytes(),
+                            Expiration.from(props.refreshLockTtl()),
+                            RedisStringCommands.SetOption.SET_IF_ABSENT));
+            return Boolean.TRUE.equals(acquired) ? LockResult.ACQUIRED : LockResult.HELD_BY_OTHER;
+        } catch (Exception e) {
+            log.warn("redis lock acquisition failed, proceeding without coordination", e);
+            return LockResult.REDIS_UNAVAILABLE;
+        }
     }
 
     private ProvidersResult fetchAndStoreSync() {
@@ -125,7 +134,7 @@ public class ProvidersCacheService {
     }
 
     private void refreshIfLocked() {
-        if (!tryAcquireLock()) return;
+        if (tryAcquireLock() != LockResult.ACQUIRED) return;
         long start = System.nanoTime();
         try {
             UpstreamResponse resp = client.fetchProviders();
