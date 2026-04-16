@@ -1,4 +1,5 @@
-# test — деплой в TEST. Все секреты и Redis Cluster приходят из Vault через config-server.
+# test — деплой в TEST. Интернет доступен напрямую, HAProxy и корп CA не нужны.
+# Все секреты и Redis Cluster приходят из Vault через config-server.
 spring:
   data:
     redis:
@@ -12,8 +13,4 @@ spring:
           - ${REDIS_CLUSTER_NODES_5}
         max-redirects: 3
 asiapay:
-  base-url: ${ASIAPAY_BASE_URL:https://haproxy:443}
   token: ${A_TOKEN}
-  host-header: api.asiapay.asia
-  # Корневой корп-CA (PEM) поставляется из Vault: spring.ssl.bundle.pem.tcb-root.*
-  ssl-bundle: tcb-root
