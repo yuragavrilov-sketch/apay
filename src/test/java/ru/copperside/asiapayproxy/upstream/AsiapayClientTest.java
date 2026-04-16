@@ -17,7 +17,8 @@ class AsiapayClientTest {
             .build();
 
     private AsiapayClient clientWithToken(String token) {
-        AsiapayProperties props = new AsiapayProperties(wm.baseUrl(), token, 2000, null);
+        AsiapayProperties props = new AsiapayProperties(wm.baseUrl(), token, 2000, null,
+                "/v1/tkbapp/providers", null);
         RestClient rc = RestClient.builder().baseUrl(props.baseUrl()).build();
         return new AsiapayClient(rc, props);
     }
@@ -43,6 +44,23 @@ class AsiapayClientTest {
 
         assertThat(r.status()).isEqualTo(401);
         assertThat(r.body()).isEqualTo("{\"error\":\"unauthorized\"}");
+    }
+
+    @Test
+    void fetchProviders_sendsHostHeaderWhenConfigured() {
+        AsiapayProperties props = new AsiapayProperties(wm.baseUrl(), "t", 2000, null,
+                "/v1/tkbapp/providers", "api.asiapay.asia");
+        RestClient rc = RestClient.builder().baseUrl(props.baseUrl()).build();
+        AsiapayClient c = new AsiapayClient(rc, props);
+
+        wm.stubFor(get("/v1/tkbapp/providers")
+                .withHeader("Host", equalTo("api.asiapay.asia"))
+                .willReturn(okJson("{}")));
+
+        UpstreamResponse r = c.fetchProviders();
+        assertThat(r.status()).isEqualTo(200);
+        wm.verify(getRequestedFor(urlEqualTo("/v1/tkbapp/providers"))
+                .withHeader("Host", equalTo("api.asiapay.asia")));
     }
 
     @Test

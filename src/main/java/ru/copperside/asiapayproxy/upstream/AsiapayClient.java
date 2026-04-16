@@ -11,8 +11,6 @@ import ru.copperside.asiapayproxy.config.AsiapayProperties;
 @Component
 public class AsiapayClient {
 
-    private static final String PATH = "/v1/tkbapp/providers";
-
     private final RestClient restClient;
     private final AsiapayProperties props;
 
@@ -23,11 +21,14 @@ public class AsiapayClient {
 
     public UpstreamResponse fetchProviders() {
         try {
-            var response = restClient.get()
-                    .uri(PATH)
+            var spec = restClient.get()
+                    .uri(props.providersPath())
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + props.token())
-                    .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
-                    .retrieve()
+                    .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+            if (props.hostHeader() != null && !props.hostHeader().isBlank()) {
+                spec.header(HttpHeaders.HOST, props.hostHeader());
+            }
+            var response = spec.retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {})
                     .toEntity(String.class);
             int status = response.getStatusCode().value();

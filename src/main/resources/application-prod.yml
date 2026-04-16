@@ -12,6 +12,8 @@ spring:
           - ${REDIS_CLUSTER_NODES_5}
         max-redirects: 3
 asiapay:
+  base-url: ${ASIAPAY_BASE_URL:https://haproxy:443}
   token: ${A_TOKEN}
+  host-header: api.asiapay.asia
   # Корневой корп-CA (PEM) поставляется из Vault: spring.ssl.bundle.pem.tcb-root.*
   ssl-bundle: tcb-root

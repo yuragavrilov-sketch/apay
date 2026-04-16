@@ -7,6 +7,7 @@ spring:
 asiapay:
   base-url: https://api.asiapay.asia
   timeout-ms: 5000
+  providers-path: /v1/tkbapp/providers
 cache:
   fresh-ttl: PT1H
   refresh-lock-ttl: PT30S
