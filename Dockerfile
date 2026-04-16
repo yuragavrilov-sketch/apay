@@ -6,6 +6,7 @@ COPY src ./src
 RUN mvn -B -q -DskipTests package
 
 FROM eclipse-temurin:21-jre
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 RUN groupadd -r app && useradd -r -g app -d /app app
 WORKDIR /app
 COPY --from=build /src/target/asiapay-proxy-*.jar /app/app.jar
