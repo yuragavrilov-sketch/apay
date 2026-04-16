@@ -7,7 +7,7 @@
         <version>3.3.4</version>
         <relativePath/>
     </parent>
-    <groupId>ru.tkb</groupId>
+    <groupId>ru.copperside</groupId>
     <artifactId>asiapay-proxy</artifactId>
     <version>0.1.0</version>
     <properties>

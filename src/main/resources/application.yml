@@ -14,13 +14,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus,info,env,configprops
+        include: health,prometheus,info
   endpoint:
     health:
       probes:
         enabled: true
-    env:
-      show-values: always
 logging:
   level:
     org.springframework.cloud.config: DEBUG
