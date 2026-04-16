@@ -11,6 +11,7 @@ import org.springframework.data.redis.connection.RedisStringCommands;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.types.Expiration;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import ru.copperside.asiapayproxy.config.CacheProperties;
 import ru.copperside.asiapayproxy.metrics.CacheMetrics;
@@ -23,8 +24,8 @@ public class ProvidersCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(ProvidersCacheService.class);
 
-    static final String KEY = "asiapay:providers";
-    static final String LOCK = "asiapay:providers:lock";
+    private final String keyData;
+    private final String keyLock;
 
     private final StringRedisTemplate redis;
     private final AsiapayClient client;
@@ -40,7 +41,8 @@ public class ProvidersCacheService {
                                  ObjectMapper mapper,
                                  Clock clock,
                                  CacheProperties props,
-                                 @org.springframework.beans.factory.annotation.Qualifier("refreshExecutor") java.util.concurrent.Executor refreshExecutor) {
+                                 @org.springframework.beans.factory.annotation.Qualifier("refreshExecutor") java.util.concurrent.Executor refreshExecutor,
+                                 Environment env) {
         this.redis = redis;
         this.client = client;
         this.metrics = metrics;
@@ -48,6 +50,12 @@ public class ProvidersCacheService {
         this.clock = clock;
         this.props = props;
         this.refreshExecutor = refreshExecutor;
+
+        String[] profiles = env.getActiveProfiles();
+        String profile = (profiles.length > 0) ? profiles[0] : "default";
+        this.keyData = "asiapay:providers:" + profile;
+        this.keyLock = "asiapay:providers:lock:" + profile;
+        log.info("Redis keys: data={}, lock={}", keyData, keyLock);
     }
 
     public ProvidersResult get() {
@@ -71,7 +79,7 @@ public class ProvidersCacheService {
     private LockResult tryAcquireLock() {
         try {
             Boolean acquired = redis.execute((RedisCallback<Boolean>) connection ->
-                    connection.stringCommands().set(LOCK.getBytes(), "1".getBytes(),
+                    connection.stringCommands().set(keyLock.getBytes(), "1".getBytes(),
                             Expiration.from(props.refreshLockTtl()),
                             RedisStringCommands.SetOption.SET_IF_ABSENT));
             return Boolean.TRUE.equals(acquired) ? LockResult.ACQUIRED : LockResult.HELD_BY_OTHER;
@@ -102,14 +110,14 @@ public class ProvidersCacheService {
 
     private void releaseLock() {
         try {
-            redis.delete(LOCK);
+            redis.delete(keyLock);
         } catch (Exception ignored) {}
     }
 
     private void storeEntry(UpstreamResponse resp) {
         try {
             CacheEntry entry = new CacheEntry(resp.body(), clock.instant(), resp.status());
-            redis.opsForValue().set(KEY, mapper.writeValueAsString(entry));
+            redis.opsForValue().set(keyData, mapper.writeValueAsString(entry));
         } catch (Exception e) {
             log.warn("cache store failed", e);
         }
@@ -142,12 +150,12 @@ public class ProvidersCacheService {
 
     private CacheEntry readEntry() {
         try {
-            String json = redis.opsForValue().get(KEY);
+            String json = redis.opsForValue().get(keyData);
             if (json == null) return null;
             return mapper.readValue(json, CacheEntry.class);
         } catch (JsonProcessingException e) {
-            log.warn("corrupt cache entry, deleting key={}", KEY, e);
-            try { redis.delete(KEY); } catch (Exception del) { /* best effort */ }
+            log.warn("corrupt cache entry, deleting key={}", keyData, e);
+            try { redis.delete(keyData); } catch (Exception del) { /* best effort */ }
             return null;
         } catch (Exception e) {
             log.warn("redis read failed, failing open to upstream", e);

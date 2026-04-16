@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.Environment;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import ru.copperside.asiapayproxy.config.CacheProperties;
@@ -23,8 +24,8 @@ import ru.copperside.asiapayproxy.upstream.UpstreamResponse;
 
 class ProvidersCacheServiceTest {
 
-    static final String KEY = "asiapay:providers";
-    static final String LOCK = "asiapay:providers:lock";
+    static final String KEY = "asiapay:providers:test";
+    static final String LOCK = "asiapay:providers:lock:test";
 
     StringRedisTemplate redis;
     ValueOperations<String, String> ops;
@@ -45,8 +46,10 @@ class ProvidersCacheServiceTest {
         mapper = JsonMapper.builder().addModule(new JavaTimeModule()).build();
         clock = Clock.fixed(Instant.parse("2026-04-15T12:00:00Z"), ZoneOffset.UTC);
         cacheProps = new CacheProperties(Duration.ofHours(1), Duration.ofSeconds(30));
+        Environment env = mock(Environment.class);
+        when(env.getActiveProfiles()).thenReturn(new String[]{"test"});
         service = new ProvidersCacheService(redis, client, metrics, mapper, clock, cacheProps,
-                Runnable::run); // sync "async" for deterministic tests
+                Runnable::run, env); // sync "async" for deterministic tests
     }
 
     private String entryJson(Instant fetchedAt, String body) throws Exception {

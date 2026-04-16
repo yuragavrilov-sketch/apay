@@ -82,8 +82,8 @@ class ProvidersIntegrationTest {
 
     @AfterEach
     void cleanup() {
-        redisTemplate.delete("asiapay:providers");
-        redisTemplate.delete("asiapay:providers:lock");
+        redisTemplate.delete("asiapay:providers:local");
+        redisTemplate.delete("asiapay:providers:lock:local");
         wm.resetAll();
         now.set(Instant.parse("2026-04-15T12:00:00Z"));
     }
